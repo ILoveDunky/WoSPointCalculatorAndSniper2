@@ -8,31 +8,31 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --background: 215 15% 16%;
+    --foreground: 0 0% 100%;
+    --card: 240 33% 14%;
+    --card-foreground: 0 0% 100%;
+    --popover: 240 33% 14%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 211 39% 43%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 15% 25%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 215 15% 25%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 181 100% 74%;
+    --accent-foreground: 215 15% 16%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+    --border: 211 39% 33%;
+    --input: 211 39% 33%;
+    --ring: 181 100% 74%;
+    --radius: 0.8rem;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -42,26 +42,27 @@ body {
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
+    --background: 215 15% 16%;
+    --foreground: 0 0% 100%;
+    --card: 240 33% 14%;
+    --card-foreground: 0 0% 100%;
+    --popover: 240 33% 14%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 211 39% 43%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 15% 25%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 215 15% 25%;
     --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 181 100% 74%;
+    --accent-foreground: 215 15% 16%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --border: 211 39% 33%;
+    --input: 211 39% 33%;
+    --ring: 181 100% 74%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -84,5 +85,31 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+  .large-text {
+    font-size: 1.1em !important;
+  }
+
+  .extra-large-text {
+      font-size: 1.25em !important;
+  }
+
+  .high-contrast {
+    --foreground: #ffffff;
+    --card-foreground: #ffffff;
+    --popover-foreground: #ffffff;
+    --primary-foreground: #ffffff;
+    --secondary-foreground: #ffffff;
+    --muted-foreground: #ffffff;
+    --accent-foreground: #000000;
+    --border: #ffffff;
+    --background: #000000;
+    --card: #000000;
+  }
+
+  .reduced-motion * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
   }
 }
