@@ -29,9 +29,6 @@ const AiSmartSnipingSuggestionsOutputSchema = z.array(z.object({
   item: z.string().describe('The name of the item.'),
   quantity: z.number().describe('The quantity of the item to use.'),
   points: z.number().describe('The total points gained from using the item.'),
-  efficiency: z.number().describe('The efficiency of using this item.'),
-  roi: z.number().describe('The return on investment of using this item.'),
-  note: z.string().optional().describe('Additional notes about the item usage.'),
 }));
 export type AiSmartSnipingSuggestionsOutput = z.infer<
   typeof AiSmartSnipingSuggestionsOutputSchema
@@ -59,10 +56,12 @@ const prompt = ai.definePrompt({
   Target Point Gap: {{{targetGap}}}
   Budget Strategy: {{{budgetStrategy}}}
 
-  Provide a list of items with the quantity, total points, efficiency, and ROI for each item.
-  Consider any minimum shard requirements when suggesting items.
+  Provide a list of items with the quantity to use and the total points gained.
+  Only suggest items that are present in the provided event data.
+  If the item is "1 Minute of Speedups", suggest the total number of minutes, not quantities of speedup items (e.g., suggest 600, not 2x '5 hour speedup').
 
   Make sure the numbers you generate add up correctly, and that you don't exceed the target point gap.
+  Your suggestions should be an array of objects with "item", "quantity", and "points".
   `,
 });
 

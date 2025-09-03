@@ -3,29 +3,28 @@
 import { useState, useEffect, useCallback, useTransition, useMemo } from 'react';
 import type { 
   Section, EventKey, EventData, ItemCounts, ToggleStates, CustomEvents, 
-  PointsHistoryEntry, AccessibilitySettings, UserStats, Achievements, BudgetStrategy 
+  PointsHistoryEntry, AccessibilitySettings, UserStats, Achievements, BudgetStrategy, TroopEvent, TroopTimeOption
 } from '@/lib/types';
-import { eventData, achievementsData } from '@/lib/data';
+import { eventData, achievementsData, troopTimeOptions } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
-import { getSnipingSuggestions, getStrategyRecommendations } from '@/app/actions';
+import { getSnipingSuggestions } from '@/app/actions';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Icons } from '@/components/icons';
 
 import AnalyticsHub from './analytics-hub';
 import AiOptimizer from './ai-optimizer';
 import ProgressTracker from './progress-tracker';
 import { AiSmartSnipingSuggestionsOutput } from '@/ai/flows/ai-smart-sniping-suggestions';
-import { PersonalizedEventStrategyOutput } from '@/ai/flows/ai-personalized-event-strategy';
 
 
 // Main Component
@@ -42,11 +41,8 @@ export default function FrostyStrategistClient() {
   
   const [snipingEnabled, setSnipingEnabled] = useState(false);
   const [troopsEnabled, setTroopsEnabled] = useState(false);
-  const [timerEnabled, setTimerEnabled] = useState(false);
   const [historyEnabled, setHistoryEnabled] = useState(false);
-  const [roiEnabled, setRoiEnabled] = useState(false);
-  const [recommendationsEnabled, setRecommendationsEnabled] = useState(false);
-
+  
   const [totalPoints, setTotalPoints] = useState(0);
 
   // Sniping State
@@ -55,23 +51,17 @@ export default function FrostyStrategistClient() {
   const [minShards, setMinShards] = useState(1);
   const [snipingResult, setSnipingResult] = useState<AiSmartSnipingSuggestionsOutput | null>(null);
 
-  // Recommendations State
-  const [recommendations, setRecommendations] = useState<PersonalizedEventStrategyOutput | null>(null);
-  
   // Troop State
   const [troopLevel, setTroopLevel] = useState<number | undefined>();
-  const [troopTime, setTroopTime] = useState<number | undefined>();
+  const [troopTime, setTroopTime] = useState<string | undefined>();
   const [troopSpeedups, setTroopSpeedups] = useState<number | undefined>();
+  const [troopEventType, setTroopEventType] = useState<TroopEvent>('koi_svs');
+
 
   // Custom Event State
   const [customEventName, setCustomEventName] = useState('');
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPoints, setCustomItemPoints] = useState('');
-
-  // Timer State
-  const [eventEndTime, setEventEndTime] = useState('');
-  const [timeLeft, setTimeLeft] = useState('');
-  const [timeProgress, setTimeProgress] = useState(0);
 
   // History State
   const [pointsHistory, setPointsHistory] = useState<PointsHistoryEntry[]>([]);
@@ -121,33 +111,22 @@ export default function FrostyStrategistClient() {
     }
   }, [
     currentSection, currentEvent, itemCounts, toggleStates, customEvents, snipingEnabled, troopsEnabled, 
-    timerEnabled, historyEnabled, roiEnabled, recommendationsEnabled, pointsHistory, accessibilitySettings,
-    userStats, achievements
+    historyEnabled, pointsHistory, accessibilitySettings, userStats, achievements
   ]);
 
   useEffect(() => {
     calculateTotal();
-  }, [itemCounts, troopsEnabled, troopLevel, troopTime, troopSpeedups, currentEventData]);
+  }, [itemCounts, troopsEnabled, troopLevel, troopTime, troopSpeedups, currentEventData, troopEventType]);
+
 
   useEffect(() => {
-    if(recommendationsEnabled) {
-      handleGenerateRecommendations();
+    if (snipingEnabled) {
+      handleCalculateSniping();
+    } else {
+      setSnipingResult(null);
     }
-  }, [recommendationsEnabled, totalPoints, itemCounts, timeLeft])
+  }, [snipingEnabled, targetGap, budgetStrategy, minShards, currentEventData]);
 
-  useEffect(() => {
-    handleCalculateSniping();
-  }, [targetGap, budgetStrategy, minShards, currentEventData]);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (timerEnabled && eventEndTime) {
-        interval = setInterval(updateTimer, 1000);
-    }
-    return () => {
-        if(interval) clearInterval(interval);
-    };
-  }, [timerEnabled, eventEndTime]);
 
   // Functions
   const loadFromStorage = () => {
@@ -161,10 +140,7 @@ export default function FrostyStrategistClient() {
         setCustomEvents(data.customEvents || {});
         setSnipingEnabled(data.snipingEnabled || false);
         setTroopsEnabled(data.troopsEnabled || false);
-        setTimerEnabled(data.timerEnabled || false);
         setHistoryEnabled(data.historyEnabled || false);
-        setRoiEnabled(data.roiEnabled || false);
-        setRecommendationsEnabled(data.recommendationsEnabled || false);
         setPointsHistory(data.pointsHistory || []);
         setAccessibilitySettings(data.accessibilitySettings || { largeText: false, extraLargeText: false, highContrast: false, reducedMotion: false });
         setUserStats(data.userStats || { totalEvents: 0, totalPoints: 0, sessionsThisMonth: 0, firstUse: null, lastUse: null, bestEfficiency: 0, eventsMastered: [] });
@@ -179,8 +155,7 @@ export default function FrostyStrategistClient() {
     try {
       const data = {
         currentSection, currentEvent, itemCounts, toggleStates, customEvents, snipingEnabled, troopsEnabled,
-        timerEnabled, historyEnabled, roiEnabled, recommendationsEnabled, pointsHistory, accessibilitySettings,
-        userStats, achievements
+        historyEnabled, pointsHistory, accessibilitySettings, userStats, achievements
       };
       localStorage.setItem('frostyStrategist', JSON.stringify(data));
     } catch (e) {
@@ -207,17 +182,18 @@ export default function FrostyStrategistClient() {
         total += count * calc.points;
       });
     }
-
-    if (troopsEnabled && Object.keys(data.troops).length > 0) {
-      if (troopLevel && troopTime && troopSpeedups) {
-        const pointsPerTroop = data.troops[troopLevel];
-        const maxTroops = Math.floor(troopSpeedups / troopTime);
-        total += maxTroops * pointsPerTroop;
+    
+    if (troopsEnabled && troopLevel && troopTime && troopSpeedups) {
+      const pointsPerTroop = currentEventData.troops[troopEventType][troopLevel] || 0;
+      const timePerTroop = troopTimeOptions.find(t => t.value === troopTime)?.seconds || 0;
+      if (timePerTroop > 0) {
+          const maxTroops = Math.floor(troopSpeedups / timePerTroop);
+          total += maxTroops * pointsPerTroop;
       }
     }
     
     setTotalPoints(total);
-  }, [currentEvent, itemCounts, currentEventData, troopsEnabled, troopLevel, troopTime, troopSpeedups]);
+  }, [currentEvent, itemCounts, currentEventData, troopsEnabled, troopLevel, troopTime, troopSpeedups, troopEventType]);
 
 
   const handleItemCountChange = (itemName: string, value: string) => {
@@ -253,8 +229,15 @@ export default function FrostyStrategistClient() {
     }
 
     startTransition(async () => {
+      const availableItems = Object.entries(currentEventData.items)
+        .filter(([, data]) => data.available)
+        .reduce((acc, [name, data]) => {
+          acc[name] = { points: data.points };
+          return acc;
+        }, {} as Record<string, { points: number }>);
+
       const result = await getSnipingSuggestions({
-        eventData: currentEventData.items,
+        eventData: availableItems,
         targetGap,
         budgetStrategy,
         minShards
@@ -272,90 +255,15 @@ export default function FrostyStrategistClient() {
       }
     });
   };
-
-  const handleGenerateRecommendations = () => {
-    if (!recommendationsEnabled) {
-      setRecommendations(null);
-      return;
-    }
-    
-    startTransition(async () => {
-        const availableResources = Object.entries(itemCounts)
-            .filter(([key, value]) => key.startsWith(currentEvent) && value > 0)
-            .map(([key, value]) => `${key.split('-')[1]}: ${value}`)
-            .join(', ');
-
-        const result = await getStrategyRecommendations({
-            event: currentEventData.title,
-            availableResources: availableResources || 'None specified',
-            currentScore: totalPoints,
-            timeRemaining: timeLeft || 'Not set',
-            spendingStyle: 'balanced' // Placeholder for now
-        });
-
-        if (result.success) {
-            setRecommendations(result.data);
-        } else {
-            toast({
-                variant: "destructive",
-                title: "AI Error",
-                description: result.error,
-            });
-            setRecommendations(null);
-        }
-    });
-  };
-
-  const updateTimer = () => {
-    if (!eventEndTime) return;
-    const now = new Date().getTime();
-    const end = new Date(eventEndTime).getTime();
-    const distance = end - now;
-
-    const totalDuration = end - (new Date().getTime() - (timeLeft ? parseTime(timeLeft) * 1000 : 0));
-    const progress = Math.max(0, 100 - (distance / totalDuration) * 100);
-    setTimeProgress(progress);
-
-    if (distance < 0) {
-      setTimeLeft("Event Ended");
-      return;
-    }
-    const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-    setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
-  };
-
-  const parseTime = (timeStr: string) => {
-    const parts = timeStr.match(/(\d+)d (\d+)h (\d+)m (\d+)s/);
-    if (!parts) return 0;
-    return parseInt(parts[1]) * 86400 + parseInt(parts[2]) * 3600 + parseInt(parts[3]) * 60 + parseInt(parts[4]);
-  };
-  
-  const getEfficiencyBadge = (points: number) => {
-      if (points <= 100) return { text: 'Expensive', className: 'bg-red-500/20 text-red-400 border-red-500/50' };
-      if (points <= 1500) return { text: 'Medium', className: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50' };
-      if (points <= 10000) return { text: 'Good', className: 'bg-blue-500/20 text-blue-400 border-blue-500/50' };
-      return { text: 'Efficient', className: 'bg-green-500/20 text-green-400 border-green-500/50' };
-  };
-
-  const calculateItemROI = (points: number) => {
-      const maxPoints = 50000;
-      return Math.min(100, Math.floor((points / maxPoints) * 100));
-  };
   
   if (!isMounted) {
     return <div className="flex justify-center items-center h-screen">Loading Stratagems...</div>;
   }
 
   const mainToggles = [
-    { id: 'sniping', label: 'Smart Sniping', icon: Icons.target, enabled: snipingEnabled, setEnabled: setSnipingEnabled },
-    { id: 'troops', label: 'Troop Training', icon: Icons.helmet, enabled: troopsEnabled, setEnabled: setTroopsEnabled, hidden: currentEvent === 'armament-tomes' || currentEvent === 'armament-design' },
-    { id: 'timer', label: 'Event Timer', icon: Icons.clock, enabled: timerEnabled, setEnabled: setTimerEnabled },
+    { id: 'sniping', label: 'AI Smart Sniping', icon: Icons.bot, enabled: snipingEnabled, setEnabled: setSnipingEnabled },
+    { id: 'troops', label: 'Troop Training', icon: Icons.helmet, enabled: troopsEnabled, setEnabled: setTroopsEnabled, hidden: !Object.values(currentEventData.troops).some(t => Object.keys(t).length > 0) },
     { id: 'history', label: 'Points History', icon: Icons.barChart, enabled: historyEnabled, setEnabled: setHistoryEnabled },
-    { id: 'roi', label: 'ROI Analysis', icon: Icons.coins, enabled: roiEnabled, setEnabled: setRoiEnabled },
-    { id: 'recommendations', label: 'AI Suggestions', icon: Icons.bot, enabled: recommendationsEnabled, setEnabled: setRecommendationsEnabled },
   ];
 
   return (
@@ -443,18 +351,6 @@ export default function FrostyStrategistClient() {
                         </AccordionContent>
                     </AccordionItem>
                   </Accordion>
-                  
-                  {recommendationsEnabled && (
-                    <Card className="border-accent">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-accent"><Icons.bot /> AI Strategic Recommendations</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {isPending && !recommendations ? <p>Generating recommendations...</p> : null}
-                          {recommendations ? <p>{recommendations.recommendations}</p> : <p className="text-muted-foreground text-sm">AI will provide tips here based on your inputs.</p>}
-                        </CardContent>
-                    </Card>
-                  )}
 
                   <div className="grid lg:grid-cols-2 gap-6 items-start">
                     <div className="space-y-6">
@@ -477,59 +373,71 @@ export default function FrostyStrategistClient() {
                                   onChange={(e) => handleItemCountChange(name, e.target.value)}
                                   disabled={!data.available}
                                 />
-                                {roiEnabled && data.available && (
-                                    <div className="mt-2 space-y-1 text-xs">
-                                        <div className="flex justify-between items-center">
-                                            <span>ROI</span>
-                                            <span>{calculateItemROI(data.points)}%</span>
-                                        </div>
-                                        <Progress value={calculateItemROI(data.points)} className="h-1" />
-                                    </div>
-                                )}
                             </CardContent>
                           </Card>
                         ))}
                       </div>
                     </div>
                     <div className="space-y-6">
-                      {troopsEnabled && Object.keys(currentEventData.troops).length > 0 && (
+                      {troopsEnabled && Object.values(currentEventData.troops).some(t => Object.keys(t).length > 0) && (
                         <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><Icons.helmet /> Troop Training</CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                              <div className="grid sm:grid-cols-3 gap-4">
-                                <div>
-                                    <Label htmlFor="troop-level">Troop Level</Label>
-                                    <Select value={troopLevel?.toString()} onValueChange={(v) => setTroopLevel(parseInt(v))}>
-                                        <SelectTrigger id="troop-level"><SelectValue placeholder="Select" /></SelectTrigger>
-                                        <SelectContent>
-                                            {Object.keys(currentEventData.troops).map(level => <SelectItem key={level} value={level}>Level {level}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2"><Icons.helmet /> Troop Training Calculator</CardTitle>
+                                <CardDescription>Calculate points from training troops for different events.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <Label htmlFor="troop-event-type">Event Type</Label>
+                                        <Select value={troopEventType} onValueChange={(v) => setTroopEventType(v as TroopEvent)}>
+                                            <SelectTrigger id="troop-event-type"><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="koi_svs">King of Icefield / SvS</SelectItem>
+                                                <SelectItem value="officer">Officer Events</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="troop-level">Troop Level</Label>
+                                        <Select value={troopLevel?.toString()} onValueChange={(v) => setTroopLevel(parseInt(v))}>
+                                            <SelectTrigger id="troop-level"><SelectValue placeholder="Select" /></SelectTrigger>
+                                            <SelectContent>
+                                                {Object.keys(currentEventData.troops[troopEventType] || {}).map(level => <SelectItem key={level} value={level}>Level {level}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="troop-time">Base Time/Troop</Label>
+                                        <Select value={troopTime} onValueChange={setTroopTime}>
+                                            <SelectTrigger id="troop-time"><SelectValue placeholder="Select time" /></SelectTrigger>
+                                            <SelectContent>
+                                                {troopTimeOptions.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="troop-speedups">Total Speedups (seconds)</Label>
+                                        <Input id="troop-speedups" type="number" placeholder="e.g., 36000" value={troopSpeedups || ''} onChange={e => setTroopSpeedups(parseInt(e.target.value))} />
+                                    </div>
                                 </div>
-                                <div>
-                                  <Label htmlFor="troop-time">Time/Troop (s)</Label>
-                                  <Input id="troop-time" type="number" placeholder="e.g. 1800" value={troopTime || ''} onChange={e => setTroopTime(parseInt(e.target.value))} />
-                                </div>
-                                <div>
-                                  <Label htmlFor="troop-speedups">Speedups (s)</Label>
-                                  <Input id="troop-speedups" type="number" placeholder="Total seconds" value={troopSpeedups || ''} onChange={e => setTroopSpeedups(parseInt(e.target.value))} />
-                                </div>
-                              </div>
-                              {troopLevel && troopTime && troopSpeedups ? (
-                                <div className="text-sm p-3 bg-secondary rounded-lg">
-                                  <p>Max Trainable: <span className="font-bold text-accent">{Math.floor(troopSpeedups/troopTime).toLocaleString()} troops</span></p>
-                                  <p>Points from Troops: <span className="font-bold text-accent">{ (Math.floor(troopSpeedups/troopTime) * currentEventData.troops[troopLevel]).toLocaleString() }</span></p>
-                                </div>
-                              ) : <p className="text-xs text-muted-foreground text-center pt-2">Fill all fields to calculate troop points.</p>}
-                          </CardContent>
+                                {troopLevel && troopTime && troopSpeedups ? (
+                                    <div className="text-sm p-3 bg-secondary rounded-lg space-y-1">
+                                        <p>Time per troop: <span className="font-bold text-accent">{(troopTimeOptions.find(t=>t.value === troopTime)?.seconds || 0).toLocaleString()}s</span></p>
+                                        <p>Max Trainable: <span className="font-bold text-accent">{Math.floor(troopSpeedups / (troopTimeOptions.find(t=>t.value === troopTime)?.seconds || 1)).toLocaleString()} troops</span></p>
+                                        <p>Points from Troops: <span className="font-bold text-accent">{ (Math.floor(troopSpeedups / (troopTimeOptions.find(t=>t.value === troopTime)?.seconds || 1)) * (currentEventData.troops[troopEventType]?.[troopLevel] || 0)).toLocaleString() }</span></p>
+                                    </div>
+                                ) : <p className="text-xs text-muted-foreground text-center pt-2">Fill all fields to calculate troop points.</p>}
+                            </CardContent>
+                            <CardFooter>
+                                 <p className="text-xs text-muted-foreground">Find base training time in your barracks for a single troop.</p>
+                            </CardFooter>
                         </Card>
                       )}
                       {snipingEnabled && (
-                          <Card>
+                          <Card className="border-accent">
                             <CardHeader>
-                              <CardTitle className="flex items-center gap-2"><Icons.target /> Smart Sniping</CardTitle>
+                              <CardTitle className="flex items-center gap-2 text-accent"><Icons.bot /> AI Smart Sniping</CardTitle>
+                              <CardDescription>Let AI find the best items to snipe a target score. The more you use it, the smarter it gets!</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="grid sm:grid-cols-2 gap-4">
@@ -543,9 +451,9 @@ export default function FrostyStrategistClient() {
                                             <SelectTrigger id="budget-strategy"><SelectValue /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="efficient">Most Efficient</SelectItem>
-                                                <SelectItem value="quick">Quick Results</SelectItem>
-                                                <SelectItem value="balanced">Balanced Approach</SelectItem>
-                                                <SelectItem value="premium">Premium Only</SelectItem>
+                                                <SelectItem value="quick">Quickest Path</SelectItem>
+                                                <SelectItem value="balanced">Balanced</SelectItem>
+                                                <SelectItem value="premium">Premium Items First</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -563,17 +471,35 @@ export default function FrostyStrategistClient() {
                                       </SelectContent>
                                   </Select>
                                 </div>
-                                <div className="p-3 bg-secondary rounded-lg min-h-[100px]">
-                                    {isPending && !snipingResult ? <p>Thinking...</p> : null}
+                                <div className="p-4 bg-secondary rounded-lg min-h-[120px]">
+                                    <h4 className="font-semibold mb-2">AI Suggestions:</h4>
+                                    {isPending && !snipingResult ? <p className="text-sm text-muted-foreground">Thinking...</p> : null}
                                     {snipingResult && snipingResult.length > 0 ? (
-                                        <ul className="space-y-2 text-sm">
-                                            {snipingResult.map((item, i) => (
-                                                <li key={i}><strong>{item.quantity}x {item.item}</strong> = {item.points.toLocaleString()} pts</li>
-                                            ))}
-                                        </ul>
-                                    ) : <p className="text-xs text-muted-foreground text-center pt-2">AI suggestions will appear here.</p>}
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Item</TableHead>
+                                                    <TableHead className="text-right">Quantity</TableHead>
+                                                    <TableHead className="text-right">Points</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {snipingResult.map((item, i) => (
+                                                    <TableRow key={i}>
+                                                        <TableCell className="font-medium">{item.item}</TableCell>
+                                                        <TableCell className="text-right">{item.quantity.toLocaleString()}</TableCell>
+                                                        <TableCell className="text-right">{item.points.toLocaleString()}</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    ) : <p className="text-xs text-muted-foreground text-center pt-4">Enter a point gap to get AI suggestions.</p>}
                                 </div>
                             </CardContent>
+                             <CardFooter className="flex-col items-start gap-2 text-xs text-muted-foreground">
+                                <p>AI sniping helps you reach a score with the best item combination based on your strategy.</p>
+                                <p>Enjoying this Pro feature? Consider sending <span className="font-bold text-yellow-300">Froststars</span> in-game! ID: <span className="font-bold text-white">176435188</span></p>
+                            </CardFooter>
                           </Card>
                       )}
                     </div>

@@ -1,3 +1,5 @@
+export type TroopEvent = 'koi_svs' | 'officer';
+
 export interface ItemData {
   points: number;
   available: boolean;
@@ -8,7 +10,9 @@ export interface ItemData {
 export interface EventData {
   title: string;
   items: Record<string, ItemData>;
-  troops: Record<number, number>;
+  troops: {
+    [key in TroopEvent]?: Record<number, number>;
+  };
   toggles: { id: string; label: string; tooltip: string }[];
   specialCalculations?: Record<string, { label: string; points: number; stamina: number }>;
 }
@@ -64,6 +68,12 @@ export interface Achievement {
 
 export interface Achievements {
   [key: string]: Achievement;
+}
+
+export interface TroopTimeOption {
+    value: string;
+    label: string;
+    seconds: number;
 }
 
 export type Section = 'calculator' | 'analytics' | 'optimizer' | 'achievements';
