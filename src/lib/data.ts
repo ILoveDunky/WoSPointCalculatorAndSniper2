@@ -2,7 +2,7 @@ import type { Events, Achievements, TroopTimeOption } from './types';
 
 export const eventData: Events = {
     'koi': {
-        title: "🧊 King of Icefield",
+        title: "🧊 KOI",
         items: {
             'Fire Crystals': { points: 2000, available: true, toggle: 'fire-crystals' },
             'Fire Crystal Shards': { points: 1000, available: true, toggle: 'fire-shards' },
@@ -22,7 +22,7 @@ export const eventData: Events = {
         }
     },
     'officer-essence': {
-        title: "🧑‍✈️ Officer Essence",
+        title: "🧑‍✈️ Essence",
         items: {
             'Hero Gear Essence Stone': { points: 6000, available: true, toggle: 'essence-stones' },
             'Mithril': { points: 216000, available: true, toggle: 'mithril' },
@@ -34,7 +34,7 @@ export const eventData: Events = {
         toggles: []
     },
     'officer-charm': {
-        title: "🧑‍✈️ Officer Charms",
+        title: "🧑‍✈️ Charms",
         items: {
             'Hero Gear Essence Stone': { points: 6000, available: true, toggle: 'essence-stones' },
             'Mythic General Shards': { points: 3040, available: true, toggle: 'mythic-shards', minAmount: 5 },
@@ -47,7 +47,7 @@ export const eventData: Events = {
         toggles: []
     },
     'armament-tomes': {
-        title: "🏹 Armament Tomes",
+        title: "🏹 Tomes",
         items: {
             'Fire Crystal': { points: 100, available: true, toggle: 'fire-crystals' },
             'Refined Fire Crystal': { points: 1500, available: false, toggle: 'fc6' },
@@ -66,7 +66,7 @@ export const eventData: Events = {
         ]
     },
     'armament-design': {
-        title: "🏹 Armament Designs",
+        title: "🏹 Designs",
         items: {
             'Fire Crystal': { points: 100, available: true, toggle: 'fire-crystals' },
             'Refined Fire Crystal': { points: 1500, available: false, toggle: 'fc6' },
@@ -85,7 +85,7 @@ export const eventData: Events = {
         ]
     },
     'svs': {
-        title: "🏴‍☠️ State vs State",
+        title: "🏴‍☠️ SVS",
         items: {
             'Fire Crystal': { points: 2000, available: true, toggle: 'fire-crystals' },
             'Fire Crystal Shard (research)': { points: 1000, available: true, toggle: 'fire-shards' },
@@ -109,7 +109,7 @@ export const eventData: Events = {
         }
     },
     'custom': {
-        title: "⚙️ Custom Event",
+        title: "⚙️ Custom",
         items: {},
         troops: {
             koi_svs: {},
@@ -180,3 +180,5 @@ export const achievementsData: Achievements = {
         target: 1000000
     }
 };
+
+    

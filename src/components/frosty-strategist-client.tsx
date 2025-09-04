@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useTransition, useMemo } from 'react';
@@ -62,6 +63,8 @@ export default function FrostyStrategistClient() {
   const [customEventName, setCustomEventName] = useState('');
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPoints, setCustomItemPoints] = useState('');
+  const [editingCustomEventName, setEditingCustomEventName] = useState('');
+
 
   // History State
   const [pointsHistory, setPointsHistory] = useState<PointsHistoryEntry[]>([]);
@@ -83,7 +86,7 @@ export default function FrostyStrategistClient() {
   // Data
   const currentEventData = useMemo(() => {
     if (currentEvent === 'custom') {
-      return customEvents[customEventName] || eventData.custom;
+      return customEvents[editingCustomEventName] || eventData.custom;
     }
     const data = JSON.parse(JSON.stringify(eventData[currentEvent])) as EventData;
     
@@ -96,7 +99,7 @@ export default function FrostyStrategistClient() {
     });
 
     return data;
-  }, [currentEvent, customEvents, customEventName, toggleStates]);
+  }, [currentEvent, customEvents, editingCustomEventName, toggleStates]);
 
 
   // Effects
@@ -145,6 +148,11 @@ export default function FrostyStrategistClient() {
         setAccessibilitySettings(data.accessibilitySettings || { largeText: false, extraLargeText: false, highContrast: false, reducedMotion: false });
         setUserStats(data.userStats || { totalEvents: 0, totalPoints: 0, sessionsThisMonth: 0, firstUse: null, lastUse: null, bestEfficiency: 0, eventsMastered: [] });
         setAchievements(data.achievements || achievementsData);
+        // Load the first custom event if available
+        const firstCustomEvent = Object.keys(data.customEvents || {})[0];
+        if (firstCustomEvent) {
+          setEditingCustomEventName(firstCustomEvent);
+        }
       }
     } catch (e) {
       console.error("Failed to load from storage", e);
@@ -169,7 +177,7 @@ export default function FrostyStrategistClient() {
 
     Object.entries(data.items).forEach(([itemName, itemData]) => {
       if (itemData.available) {
-        const inputKey = `${currentEvent}-${itemName}`;
+        const inputKey = `${currentEvent}-${editingCustomEventName}-${itemName}`;
         const count = itemCounts[inputKey] || 0;
         total += count * itemData.points;
       }
@@ -193,7 +201,7 @@ export default function FrostyStrategistClient() {
     }
     
     setTotalPoints(total);
-  }, [currentEvent, itemCounts, currentEventData, troopsEnabled, troopLevel, troopTime, troopSpeedups, troopEventType]);
+  }, [currentEvent, itemCounts, currentEventData, troopsEnabled, troopLevel, troopTime, troopSpeedups, troopEventType, editingCustomEventName]);
 
 
   const handleItemCountChange = (itemName: string, value: string) => {
@@ -204,7 +212,7 @@ export default function FrostyStrategistClient() {
       numValue = itemData.minAmount;
     }
     
-    const key = `${currentEvent}-${itemName}`;
+    const key = `${currentEvent}-${editingCustomEventName}-${itemName}`;
     setItemCounts(prev => ({...prev, [key]: numValue}));
   };
 
@@ -221,6 +229,69 @@ export default function FrostyStrategistClient() {
         return newState;
     });
   };
+
+  const handleCreateCustomEvent = () => {
+    if (!customEventName.trim()) {
+      toast({ variant: "destructive", title: "Error", description: "Event name cannot be empty." });
+      return;
+    }
+    if (customEvents[customEventName]) {
+      toast({ variant: "destructive", title: "Error", description: "An event with this name already exists." });
+      return;
+    }
+    setCustomEvents(prev => ({
+      ...prev,
+      [customEventName]: {
+        title: customEventName,
+        items: {},
+        troops: { koi_svs: {}, officer: {} },
+        toggles: []
+      }
+    }));
+    setEditingCustomEventName(customEventName);
+    setCustomEventName('');
+  };
+
+  const handleAddCustomItem = () => {
+    if (!editingCustomEventName) {
+      toast({ variant: "destructive", title: "Error", description: "Select a custom event first." });
+      return;
+    }
+    if (!customItemName.trim() || !customItemPoints.trim() || isNaN(parseInt(customItemPoints))) {
+      toast({ variant: "destructive", title: "Error", description: "Invalid item name or points." });
+      return;
+    }
+
+    setCustomEvents(prev => {
+      const updatedEvent = { ...prev[editingCustomEventName] };
+      updatedEvent.items[customItemName] = { points: parseInt(customItemPoints), available: true };
+      return { ...prev, [editingCustomEventName]: updatedEvent };
+    });
+
+    setCustomItemName('');
+    setCustomItemPoints('');
+  };
+
+  const handleRemoveCustomItem = (itemName: string) => {
+     if (!editingCustomEventName) return;
+     setCustomEvents(prev => {
+        const newEvents = {...prev};
+        delete newEvents[editingCustomEventName].items[itemName];
+        return newEvents;
+     });
+  };
+
+  const handleRemoveCustomEvent = (eventName: string) => {
+    setCustomEvents(prev => {
+        const newEvents = {...prev};
+        delete newEvents[eventName];
+        if (editingCustomEventName === eventName) {
+            setEditingCustomEventName(Object.keys(newEvents)[0] || '');
+        }
+        return newEvents;
+    });
+  };
+
 
   const handleCalculateSniping = () => {
     if (!snipingEnabled || targetGap <= 0) {
@@ -265,6 +336,93 @@ export default function FrostyStrategistClient() {
     { id: 'troops', label: 'Troop Training', icon: Icons.helmet, enabled: troopsEnabled, setEnabled: setTroopsEnabled, hidden: !Object.values(currentEventData.troops).some(t => Object.keys(t).length > 0) },
     { id: 'history', label: 'Points History', icon: Icons.barChart, enabled: historyEnabled, setEnabled: setHistoryEnabled },
   ];
+  
+  const renderCustomEventUI = () => (
+    <div className="space-y-6">
+        <Card>
+            <CardHeader>
+                <CardTitle>Create & Manage Custom Events</CardTitle>
+                <CardDescription>Design your own event calculators for any in-game event.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                    <Input 
+                        placeholder="New Event Name"
+                        value={customEventName}
+                        onChange={e => setCustomEventName(e.target.value)}
+                    />
+                    <Button onClick={handleCreateCustomEvent}><Icons.plusCircle /> Create</Button>
+                </div>
+
+                {Object.keys(customEvents).length > 0 && (
+                    <div className="grid sm:grid-cols-2 gap-4">
+                         <div>
+                            <Label htmlFor="custom-event-select">Select Event to Edit</Label>
+                            <div className="flex gap-2">
+                                <Select value={editingCustomEventName} onValueChange={setEditingCustomEventName}>
+                                    <SelectTrigger id="custom-event-select"><SelectValue placeholder="Select an event" /></SelectTrigger>
+                                    <SelectContent>
+                                        {Object.keys(customEvents).map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                {editingCustomEventName && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                       <Button variant="destructive" size="icon" onClick={() => handleRemoveCustomEvent(editingCustomEventName)}><Icons.trash /></Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent><p>Delete '{editingCustomEventName}' event</p></TooltipContent>
+                                  </Tooltip>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+
+        {editingCustomEventName && customEvents[editingCustomEventName] && (
+             <Card>
+                <CardHeader>
+                    <CardTitle>Add Items to '{editingCustomEventName}'</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <Input placeholder="Item Name" value={customItemName} onChange={e => setCustomItemName(e.target.value)} />
+                        <Input type="number" placeholder="Points per item" value={customItemPoints} onChange={e => setCustomItemPoints(e.target.value)} />
+                        <Button onClick={handleAddCustomItem} className="sm:w-auto w-full"><Icons.plusCircle /> Add Item</Button>
+                    </div>
+                    {Object.keys(customEvents[editingCustomEventName].items).length > 0 ? (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Item</TableHead>
+                                    <TableHead>Points</TableHead>
+                                    <TableHead className="text-right">Action</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {Object.entries(customEvents[editingCustomEventName].items).map(([name, data]) => (
+                                    <TableRow key={name}>
+                                        <TableCell className="font-medium">{name}</TableCell>
+                                        <TableCell>{data.points.toLocaleString()}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveCustomItem(name)}>
+                                                <Icons.trash className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : (
+                        <p className="text-sm text-muted-foreground text-center pt-4">No items added yet. Add items above to start calculating.</p>
+                    )}
+                </CardContent>
+            </Card>
+        )}
+    </div>
+  );
+
 
   return (
     <TooltipProvider>
@@ -293,18 +451,18 @@ export default function FrostyStrategistClient() {
             <TabsContent value="calculator" className="mt-6">
               <Card>
                 <CardHeader>
-                  <Tabs value={currentEvent} onValueChange={(val) => setCurrentEvent(val as EventKey)} className="w-full">
+                  <Tabs value={currentEvent} onValueChange={(val) => { setCurrentEvent(val as EventKey); setSnipingResult(null); }} className="w-full">
                     <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
                         {Object.keys(eventData).map(key => {
                             const title = eventData[key as EventKey].title;
-                            const icon = title.split(' ')[0];
-                            const name = title.split(' ').slice(1).join(' ');
-                            return <TabsTrigger key={key} value={key}>{icon} {name}</TabsTrigger>
+                            return <TabsTrigger key={key} value={key}>{title}</TabsTrigger>
                         })}
                     </TabsList>
                   </Tabs>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {currentEvent === 'custom' ? renderCustomEventUI() : null}
+                  
                   <h2 className="text-2xl font-bold text-primary flex items-center gap-2">{currentEventData.title}</h2>
                   
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -369,7 +527,7 @@ export default function FrostyStrategistClient() {
                                   placeholder={data.minAmount ? `Min: ${data.minAmount}` : 'Quantity'}
                                   min={data.minAmount || 0}
                                   step={data.minAmount || 1}
-                                  value={itemCounts[`${currentEvent}-${name}`] || ''}
+                                  value={itemCounts[`${currentEvent}-${editingCustomEventName}-${name}`] || ''}
                                   onChange={(e) => handleItemCountChange(name, e.target.value)}
                                   disabled={!data.available}
                                 />
@@ -377,6 +535,9 @@ export default function FrostyStrategistClient() {
                           </Card>
                         ))}
                       </div>
+                       {currentEvent !== 'custom' && Object.keys(currentEventData.items).length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center col-span-2">No items to calculate for this event. Check advanced options or enable features.</p>
+                       )}
                     </div>
                     <div className="space-y-6">
                       {troopsEnabled && Object.values(currentEventData.troops).some(t => Object.keys(t).length > 0) && (
@@ -529,3 +690,5 @@ export default function FrostyStrategistClient() {
     </TooltipProvider>
   );
 }
+
+    
