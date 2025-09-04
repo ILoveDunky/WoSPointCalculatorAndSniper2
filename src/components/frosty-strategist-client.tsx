@@ -1,14 +1,13 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useTransition, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { 
   Section, EventKey, EventData, ItemCounts, ToggleStates, CustomEvents, 
-  PointsHistoryEntry, AccessibilitySettings, UserStats, Achievements, BudgetStrategy, TroopEvent, TroopTimeOption
+  PointsHistoryEntry, AccessibilitySettings, UserStats, Achievements, TroopEvent, TroopTimeOption
 } from '@/lib/types';
 import { eventData, achievementsData, troopTimeOptions } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
-import { getSnipingSuggestions } from '@/app/actions';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -22,16 +21,18 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Icons } from '@/components/icons';
 
-import AnalyticsHub from './analytics-hub';
-import AiOptimizer from './ai-optimizer';
 import ProgressTracker from './progress-tracker';
-import { AiSmartSnipingSuggestionsOutput } from '@/ai/flows/ai-smart-sniping-suggestions';
+
+type SnipingResult = {
+  item: string;
+  quantity: number;
+  points: number;
+}[];
 
 
 // Main Component
 export default function FrostyStrategistClient() {
   const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
 
   // State
   const [currentSection, setCurrentSection] = useState<Section>('calculator');
@@ -48,9 +49,7 @@ export default function FrostyStrategistClient() {
 
   // Sniping State
   const [targetGap, setTargetGap] = useState(0);
-  const [budgetStrategy, setBudgetStrategy] = useState<BudgetStrategy>('efficient');
-  const [minShards, setMinShards] = useState(1);
-  const [snipingResult, setSnipingResult] = useState<AiSmartSnipingSuggestionsOutput | null>(null);
+  const [snipingResult, setSnipingResult] = useState<SnipingResult | null>(null);
 
   // Troop State
   const [troopLevel, setTroopLevel] = useState<number | undefined>();
@@ -128,7 +127,7 @@ export default function FrostyStrategistClient() {
     } else {
       setSnipingResult(null);
     }
-  }, [snipingEnabled, targetGap, budgetStrategy, minShards, currentEventData]);
+  }, [snipingEnabled, targetGap, currentEventData]);
 
 
   // Functions
@@ -292,39 +291,81 @@ export default function FrostyStrategistClient() {
     });
   };
 
-
   const handleCalculateSniping = () => {
     if (!snipingEnabled || targetGap <= 0) {
       setSnipingResult(null);
       return;
     }
+    
+    const availableItems = Object.entries(currentEventData.items)
+      .filter(([, data]) => data.available && data.points > 0)
+      .map(([name, data]) => ({
+        name,
+        points: data.points,
+        efficiency: data.points, 
+        minAmount: data.minAmount || 1,
+      }))
+      .sort((a, b) => b.efficiency - a.efficiency);
+  
+    let remainingGap = targetGap;
+    const result: SnipingResult = [];
+  
+    for (const item of availableItems) {
+      if (remainingGap <= 0) break;
+  
+      const quantityNeeded = Math.floor(remainingGap / item.points);
+      
+      if (quantityNeeded > 0) {
+        let quantityToAdd = quantityNeeded;
+        
+        if (item.minAmount && item.minAmount > 1) {
+            // If there's a min amount, we can't just take any amount.
+            // This simple greedy approach might not be optimal for items with minAmount,
+            // but for now we will just use as many packs as needed without going over.
+             if (quantityNeeded < item.minAmount) {
+                 continue; // Skip if we can't even use one minimum pack.
+             }
+             // Use multiples of minAmount
+             quantityToAdd = Math.floor(quantityNeeded / item.minAmount) * item.minAmount;
+        }
 
-    startTransition(async () => {
-      const availableItems = Object.entries(currentEventData.items)
-        .filter(([, data]) => data.available)
-        .reduce((acc, [name, data]) => {
-          acc[name] = { points: data.points };
-          return acc;
-        }, {} as Record<string, { points: number }>);
-
-      const result = await getSnipingSuggestions({
-        eventData: availableItems,
-        targetGap,
-        budgetStrategy,
-        minShards
-      });
-
-      if (result.success) {
-        setSnipingResult(result.data);
-      } else {
-        toast({
-          variant: "destructive",
-          title: "AI Error",
-          description: result.error,
-        });
-        setSnipingResult(null);
+        if(quantityToAdd > 0) {
+            result.push({
+                item: item.name,
+                quantity: quantityToAdd,
+                points: quantityToAdd * item.points,
+            });
+            remainingGap -= quantityToAdd * item.points;
+        }
       }
-    });
+    }
+    
+    // Final pass for any small remaining gap
+    if (remainingGap > 0) {
+        const reversedItems = [...availableItems].reverse();
+        for (const item of reversedItems) {
+            if (remainingGap <= 0) break;
+            if (item.points <= remainingGap && (!item.minAmount || item.minAmount === 1)) {
+                 const quantityNeeded = Math.floor(remainingGap / item.points);
+                 if(quantityNeeded > 0){
+                    const existingItem = result.find(r => r.item === item.name);
+                    if(existingItem) {
+                        existingItem.quantity += quantityNeeded;
+                        existingItem.points += quantityNeeded * item.points;
+                    } else {
+                        result.push({
+                            item: item.name,
+                            quantity: quantityNeeded,
+                            points: quantityNeeded * item.points
+                        });
+                    }
+                    remainingGap -= quantityNeeded * item.points;
+                 }
+            }
+        }
+    }
+
+    setSnipingResult(result);
   };
   
   if (!isMounted) {
@@ -332,7 +373,7 @@ export default function FrostyStrategistClient() {
   }
 
   const mainToggles = [
-    { id: 'sniping', label: 'AI Smart Sniping', icon: Icons.bot, enabled: snipingEnabled, setEnabled: setSnipingEnabled },
+    { id: 'sniping', label: 'Smart Sniping', icon: Icons.crosshair, enabled: snipingEnabled, setEnabled: setSnipingEnabled },
     { id: 'troops', label: 'Troop Training', icon: Icons.helmet, enabled: troopsEnabled, setEnabled: setTroopsEnabled, hidden: !Object.values(currentEventData.troops).some(t => Object.keys(t).length > 0) },
     { id: 'history', label: 'Points History', icon: Icons.barChart, enabled: historyEnabled, setEnabled: setHistoryEnabled },
   ];
@@ -433,7 +474,7 @@ export default function FrostyStrategistClient() {
             Frosty Strategist
             <span className="text-xs align-super font-bold px-3 py-1 rounded-full bg-gradient-to-r from-chart-4 to-chart-5 text-black">PRO</span>
           </h1>
-          <p className="text-muted-foreground mt-2">AI-Powered Resource Optimization for Whiteout Survival</p>
+          <p className="text-muted-foreground mt-2">Advanced Resource Optimization for Whiteout Survival</p>
           <div className="mt-4 text-sm bg-yellow-400/10 border border-yellow-400/50 text-yellow-300 rounded-lg p-3 max-w-md mx-auto">
             <p>Advanced features unlock new strategies! Support development with <span className="font-bold">Froststars</span> in-game!</p>
             <p className="font-bold mt-1">Player ID: 176435188 🎁</p>
@@ -441,11 +482,9 @@ export default function FrostyStrategistClient() {
         </header>
 
         <Tabs value={currentSection} onValueChange={(val) => setCurrentSection(val as Section)} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+            <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="calculator"><Icons.barChart className="mr-2" />Event Calculator</TabsTrigger>
-                <TabsTrigger value="analytics" className="text-primary-foreground/70"><Icons.trendingUp className="mr-2" />Analytics Hub</TabsTrigger>
-                <TabsTrigger value="optimizer" className="text-primary-foreground/70"><Icons.bot className="mr-2" />AI Optimizer</TabsTrigger>
-                <TabsTrigger value="achievements" className="text-primary-foreground/70"><Icons.trophy className="mr-2" />Progress Tracker</TabsTrigger>
+                <TabsTrigger value="achievements"><Icons.trophy className="mr-2" />Progress Tracker</TabsTrigger>
             </TabsList>
 
             <TabsContent value="calculator" className="mt-6">
@@ -597,44 +636,18 @@ export default function FrostyStrategistClient() {
                       {snipingEnabled && (
                           <Card className="border-accent">
                             <CardHeader>
-                              <CardTitle className="flex items-center gap-2 text-accent"><Icons.bot /> AI Smart Sniping</CardTitle>
-                              <CardDescription>Let AI find the best items to snipe a target score. The more you use it, the smarter it gets!</CardDescription>
+                              <CardTitle className="flex items-center gap-2 text-accent"><Icons.crosshair /> Smart Sniping</CardTitle>
+                              <CardDescription>Find the best items to snipe a target score with point efficiency.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 gap-4">
                                     <div>
                                         <Label htmlFor="target-gap">Target Point Gap</Label>
                                         <Input id="target-gap" type="number" placeholder="Points needed" value={targetGap || ''} onChange={e => setTargetGap(parseInt(e.target.value))} />
                                     </div>
-                                    <div>
-                                        <Label htmlFor="budget-strategy">Budget Strategy</Label>
-                                        <Select value={budgetStrategy} onValueChange={(v) => setBudgetStrategy(v as BudgetStrategy)}>
-                                            <SelectTrigger id="budget-strategy"><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="efficient">Most Efficient</SelectItem>
-                                                <SelectItem value="quick">Quickest Path</SelectItem>
-                                                <SelectItem value="balanced">Balanced</SelectItem>
-                                                <SelectItem value="premium">Premium Items First</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                                <div>
-                                  <Label htmlFor="min-shards">Min General Shards</Label>
-                                  <Select value={minShards.toString()} onValueChange={(v) => setMinShards(parseInt(v))}>
-                                      <SelectTrigger id="min-shards"><SelectValue /></SelectTrigger>
-                                      <SelectContent>
-                                          <SelectItem value="1">Any Amount</SelectItem>
-                                          <SelectItem value="5">5 minimum</SelectItem>
-                                          <SelectItem value="10">10 minimum</SelectItem>
-                                          <SelectItem value="40">40 minimum</SelectItem>
-                                          <SelectItem value="100">100 minimum</SelectItem>
-                                      </SelectContent>
-                                  </Select>
                                 </div>
                                 <div className="p-4 bg-secondary rounded-lg min-h-[120px]">
-                                    <h4 className="font-semibold mb-2">AI Suggestions:</h4>
-                                    {isPending && !snipingResult ? <p className="text-sm text-muted-foreground">Thinking...</p> : null}
+                                    <h4 className="font-semibold mb-2">Suggestions:</h4>
                                     {snipingResult && snipingResult.length > 0 ? (
                                         <Table>
                                             <TableHeader>
@@ -654,11 +667,11 @@ export default function FrostyStrategistClient() {
                                                 ))}
                                             </TableBody>
                                         </Table>
-                                    ) : <p className="text-xs text-muted-foreground text-center pt-4">Enter a point gap to get AI suggestions.</p>}
+                                    ) : <p className="text-xs text-muted-foreground text-center pt-4">Enter a point gap to get suggestions.</p>}
                                 </div>
                             </CardContent>
                              <CardFooter className="flex-col items-start gap-2 text-xs text-muted-foreground">
-                                <p>AI sniping helps you reach a score with the best item combination based on your strategy.</p>
+                                <p>Smart sniping helps you reach a score with the most point-efficient item combination.</p>
                                 <p>Enjoying this Pro feature? Consider sending <span className="font-bold text-yellow-300">Froststars</span> in-game! ID: <span className="font-bold text-white">176435188</span></p>
                             </CardFooter>
                           </Card>
@@ -669,12 +682,6 @@ export default function FrostyStrategistClient() {
               </Card>
             </TabsContent>
             
-            <TabsContent value="analytics" className="mt-6">
-                <AnalyticsHub userStats={userStats}/>
-            </TabsContent>
-            <TabsContent value="optimizer" className="mt-6">
-                <AiOptimizer />
-            </TabsContent>
             <TabsContent value="achievements" className="mt-6">
                 <ProgressTracker achievements={achievements} userStats={userStats} />
             </TabsContent>
@@ -690,5 +697,3 @@ export default function FrostyStrategistClient() {
     </TooltipProvider>
   );
 }
-
-    

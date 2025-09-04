@@ -76,6 +76,5 @@ export interface TroopTimeOption {
     seconds: number;
 }
 
-export type Section = 'calculator' | 'analytics' | 'optimizer' | 'achievements';
+export type Section = 'calculator' | 'achievements';
 export type EventKey = 'koi' | 'officer-essence' | 'officer-charm' | 'armament-tomes' | 'armament-design' | 'svs' | 'custom';
-export type BudgetStrategy = 'efficient' | 'quick' | 'balanced' | 'premium';
