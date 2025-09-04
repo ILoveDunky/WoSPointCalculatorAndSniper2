@@ -4,9 +4,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { 
   Section, EventKey, EventData, ItemCounts, ToggleStates, CustomEvents, 
-  PointsHistoryEntry, AccessibilitySettings, UserStats, Achievements, TroopEvent, TroopTimeOption
+  PointsHistoryEntry, AccessibilitySettings, UserStats, Achievements, TroopEvent
 } from '@/lib/types';
-import { eventData, achievementsData, troopTimeOptions } from '@/lib/data';
+import { eventData, achievementsData } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -53,7 +53,7 @@ export default function FrostyStrategistClient() {
 
   // Troop State
   const [troopLevel, setTroopLevel] = useState<number | undefined>();
-  const [troopTime, setTroopTime] = useState<string | undefined>();
+  const [troopTime, setTroopTime] = useState<number | undefined>();
   const [troopSpeedups, setTroopSpeedups] = useState<number | undefined>();
   const [troopEventType, setTroopEventType] = useState<TroopEvent>('koi_svs');
 
@@ -191,10 +191,9 @@ export default function FrostyStrategistClient() {
     }
     
     if (troopsEnabled && troopLevel && troopTime && troopSpeedups) {
-      const pointsPerTroop = currentEventData.troops[troopEventType][troopLevel] || 0;
-      const timePerTroop = troopTimeOptions.find(t => t.value === troopTime)?.seconds || 0;
-      if (timePerTroop > 0) {
-          const maxTroops = Math.floor(troopSpeedups / timePerTroop);
+      const pointsPerTroop = currentEventData.troops[troopEventType]?.[troopLevel] || 0;
+      if (troopTime > 0) {
+          const maxTroops = Math.floor(troopSpeedups / troopTime);
           total += maxTroops * pointsPerTroop;
       }
     }
@@ -564,7 +563,7 @@ export default function FrostyStrategistClient() {
                                 <Input 
                                   type="number" 
                                   placeholder={data.minAmount ? `Min: ${data.minAmount}` : 'Quantity'}
-                                  min={data.minAmount || 0}
+                                  min={0}
                                   step={data.minAmount || 1}
                                   value={itemCounts[`${currentEvent}-${editingCustomEventName}-${name}`] || ''}
                                   onChange={(e) => handleItemCountChange(name, e.target.value)}
@@ -607,13 +606,8 @@ export default function FrostyStrategistClient() {
                                         </Select>
                                     </div>
                                     <div>
-                                        <Label htmlFor="troop-time">Base Time/Troop</Label>
-                                        <Select value={troopTime} onValueChange={setTroopTime}>
-                                            <SelectTrigger id="troop-time"><SelectValue placeholder="Select time" /></SelectTrigger>
-                                            <SelectContent>
-                                                {troopTimeOptions.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
+                                        <Label htmlFor="troop-time">Base Time/Troop (seconds)</Label>
+                                        <Input id="troop-time" type="number" placeholder="e.g., 5400" value={troopTime || ''} onChange={e => setTroopTime(parseInt(e.target.value))} />
                                     </div>
                                     <div>
                                         <Label htmlFor="troop-speedups">Total Speedups (seconds)</Label>
@@ -622,9 +616,9 @@ export default function FrostyStrategistClient() {
                                 </div>
                                 {troopLevel && troopTime && troopSpeedups ? (
                                     <div className="text-sm p-3 bg-secondary rounded-lg space-y-1">
-                                        <p>Time per troop: <span className="font-bold text-accent">{(troopTimeOptions.find(t=>t.value === troopTime)?.seconds || 0).toLocaleString()}s</span></p>
-                                        <p>Max Trainable: <span className="font-bold text-accent">{Math.floor(troopSpeedups / (troopTimeOptions.find(t=>t.value === troopTime)?.seconds || 1)).toLocaleString()} troops</span></p>
-                                        <p>Points from Troops: <span className="font-bold text-accent">{ (Math.floor(troopSpeedups / (troopTimeOptions.find(t=>t.value === troopTime)?.seconds || 1)) * (currentEventData.troops[troopEventType]?.[troopLevel] || 0)).toLocaleString() }</span></p>
+                                        <p>Time per troop: <span className="font-bold text-accent">{troopTime.toLocaleString()}s</span></p>
+                                        <p>Max Trainable: <span className="font-bold text-accent">{Math.floor(troopSpeedups / (troopTime || 1)).toLocaleString()} troops</span></p>
+                                        <p>Points from Troops: <span className="font-bold text-accent">{ (Math.floor(troopSpeedups / (troopTime || 1)) * (currentEventData.troops[troopEventType]?.[troopLevel] || 0)).toLocaleString() }</span></p>
                                     </div>
                                 ) : <p className="text-xs text-muted-foreground text-center pt-2">Fill all fields to calculate troop points.</p>}
                             </CardContent>

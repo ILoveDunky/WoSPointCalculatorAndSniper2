@@ -4,12 +4,12 @@ export const eventData: Events = {
     'koi': {
         title: "🧊 KOI",
         items: {
-            'Fire Crystals': { points: 2000, available: true, toggle: 'fire-crystals' },
-            'Fire Crystal Shards': { points: 1000, available: true, toggle: 'fire-shards' },
+            'Fire Crystals': { points: 2000, available: true, toggle: 'fire-crystals', minAmount: 1 },
+            'Fire Crystal Shards': { points: 1000, available: true, toggle: 'fire-shards', minAmount: 1 },
             '1 Minute of Speedups': { points: 30, available: true, toggle: 'speedups' },
             'Mythic General Shards': { points: 3040, available: true, toggle: 'mythic-shards', minAmount: 5 },
-            'Hero Gear Essence Stone': { points: 4000, available: true, toggle: 'essence-stones' },
-            'Mithril': { points: 40000, available: true, toggle: 'mithril' }
+            'Hero Gear Essence Stone': { points: 4000, available: true, toggle: 'essence-stones', minAmount: 1 },
+            'Mithril': { points: 40000, available: true, toggle: 'mithril', minAmount: 1 }
         },
         troops: {
             koi_svs: { 1: 3, 2: 4, 3: 5, 4: 8, 5: 12, 6: 18, 7: 25, 8: 35, 9: 45, 10: 60, 11: 75 },
@@ -24,8 +24,8 @@ export const eventData: Events = {
     'officer-essence': {
         title: "🧑‍✈️ Essence",
         items: {
-            'Hero Gear Essence Stone': { points: 6000, available: true, toggle: 'essence-stones' },
-            'Mithril': { points: 216000, available: true, toggle: 'mithril' },
+            'Hero Gear Essence Stone': { points: 6000, available: true, toggle: 'essence-stones', minAmount: 1 },
+            'Mithril': { points: 216000, available: true, toggle: 'mithril', minAmount: 1 },
         },
         troops: {
             koi_svs: { 1: 3, 2: 4, 3: 5, 4: 8, 5: 12, 6: 18, 7: 25, 8: 35, 9: 45, 10: 60, 11: 75 },
@@ -36,7 +36,7 @@ export const eventData: Events = {
     'officer-charm': {
         title: "🧑‍✈️ Charms",
         items: {
-            'Hero Gear Essence Stone': { points: 6000, available: true, toggle: 'essence-stones' },
+            'Hero Gear Essence Stone': { points: 6000, available: true, toggle: 'essence-stones', minAmount: 1 },
             'Mythic General Shards': { points: 3040, available: true, toggle: 'mythic-shards', minAmount: 5 },
             'Epic Hero Shards': { points: 1220, available: true, toggle: 'epic-shards', minAmount: 5 }
         },
@@ -49,11 +49,11 @@ export const eventData: Events = {
     'armament-tomes': {
         title: "🏹 Tomes",
         items: {
-            'Fire Crystal': { points: 100, available: true, toggle: 'fire-crystals' },
+            'Fire Crystal': { points: 100, available: true, toggle: 'fire-crystals', minAmount: 1 },
             'Refined Fire Crystal': { points: 1500, available: false, toggle: 'fc6' },
             'Fire Crystal Shard (research)': { points: 50, available: false, toggle: 'state-age' },
-            'Mithril': { points: 28800, available: true, toggle: 'mithril' },
-            'Hero Gear Essence Stone': { points: 800, available: true, toggle: 'essence-stones' },
+            'Mithril': { points: 28800, available: true, toggle: 'mithril', minAmount: 1 },
+            'Hero Gear Essence Stone': { points: 800, available: true, toggle: 'essence-stones', minAmount: 1 },
             '1 Minute of Speedups': { points: 1, available: true, toggle: 'speedups' }
         },
         troops: {
@@ -68,11 +68,11 @@ export const eventData: Events = {
     'armament-design': {
         title: "🏹 Designs",
         items: {
-            'Fire Crystal': { points: 100, available: true, toggle: 'fire-crystals' },
+            'Fire Crystal': { points: 100, available: true, toggle: 'fire-crystals', minAmount: 1 },
             'Refined Fire Crystal': { points: 1500, available: false, toggle: 'fc6' },
             'Fire Crystal Shard (research)': { points: 50, available: false, toggle: 'state-age' },
-            'Mithril': { points: 28800, available: true, toggle: 'mithril' },
-            'Hero Gear Essence Stone': { points: 800, available: true, toggle: 'essence-stones' },
+            'Mithril': { points: 28800, available: true, toggle: 'mithril', minAmount: 1 },
+            'Hero Gear Essence Stone': { points: 800, available: true, toggle: 'essence-stones', minAmount: 1 },
             '1 Minute of Speedups': { points: 1, available: true, toggle: 'speedups' }
         },
         troops: {
@@ -87,16 +87,16 @@ export const eventData: Events = {
     'svs': {
         title: "🏴‍☠️ SVS",
         items: {
-            'Fire Crystal': { points: 2000, available: true, toggle: 'fire-crystals' },
-            'Fire Crystal Shard (research)': { points: 1000, available: true, toggle: 'fire-shards' },
+            'Fire Crystal': { points: 2000, available: true, toggle: 'fire-crystals', minAmount: 1 },
+            'Fire Crystal Shard (research)': { points: 1000, available: true, toggle: 'fire-shards', minAmount: 1 },
             'Refined Fire Crystal': { points: 30000, available: true, toggle: 'refined-crystals' },
             '1 Minute of Speedups': { points: 30, available: true, toggle: 'speedups' },
             'Epic Hero Shard': { points: 1220, available: true, toggle: 'epic-shards', minAmount: 5 },
             'Mythic General Shard': { points: 3040, available: true, toggle: 'mythic-shards', minAmount: 5 },
             'Advanced Wild Marks': { points: 15000, available: true, toggle: 'adv-marks' },
             'Common Wild Marks': { points: 1150, available: true, toggle: 'common-marks' },
-            'Hero Gear Essence Stone': { points: 4000, available: true, toggle: 'essence-stones' },
-            'Mithril': { points: 40000, available: true, toggle: 'mithril' }
+            'Hero Gear Essence Stone': { points: 4000, available: true, toggle: 'essence-stones', minAmount: 1 },
+            'Mithril': { points: 40000, available: true, toggle: 'mithril', minAmount: 1 }
         },
         troops: {
              koi_svs: { 1: 1, 2: 2, 3: 3, 4: 4, 5: 6, 6: 9, 7: 12, 8: 17, 9: 22, 10: 30, 11: 37 },
