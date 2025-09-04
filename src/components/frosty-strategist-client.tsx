@@ -127,7 +127,7 @@ export default function FrostyStrategistClient() {
     } else {
       setSnipingResult(null);
     }
-  }, [snipingEnabled, targetGap, currentEventData]);
+  }, [snipingEnabled, targetGap, currentEventData, itemCounts]);
 
 
   // Functions
@@ -290,20 +290,26 @@ export default function FrostyStrategistClient() {
     });
   };
 
-  const handleCalculateSniping = () => {
+  const handleCalculateSniping = useCallback(() => {
     if (!snipingEnabled || targetGap <= 0) {
       setSnipingResult(null);
       return;
     }
-    
+  
     const availableItems = Object.entries(currentEventData.items)
       .filter(([, data]) => data.available && data.points > 0)
-      .map(([name, data]) => ({
-        name,
-        points: data.points,
-        efficiency: data.points, 
-        minAmount: data.minAmount || 1,
-      }))
+      .map(([name, data]) => {
+        const inputKey = `${currentEvent}-${editingCustomEventName}-${name}`;
+        const userQuantity = itemCounts[inputKey] || 0;
+        return {
+          name,
+          points: data.points,
+          efficiency: data.points,
+          minAmount: data.minAmount || 1,
+          quantity: userQuantity,
+        };
+      })
+      .filter(item => item.quantity > 0) // Only consider items the user has
       .sort((a, b) => b.efficiency - a.efficiency);
   
     let remainingGap = targetGap;
@@ -312,60 +318,72 @@ export default function FrostyStrategistClient() {
     for (const item of availableItems) {
       if (remainingGap <= 0) break;
   
-      const quantityNeeded = Math.floor(remainingGap / item.points);
-      
-      if (quantityNeeded > 0) {
-        let quantityToAdd = quantityNeeded;
-        
+      let quantityToUse = Math.floor(remainingGap / item.points);
+  
+      // Clamp to available quantity
+      if (quantityToUse > item.quantity) {
+        quantityToUse = item.quantity;
+      }
+  
+      if (quantityToUse > 0) {
+        let quantityToAdd = quantityToUse;
+  
         if (item.minAmount && item.minAmount > 1) {
-            // If there's a min amount, we can't just take any amount.
-            // This simple greedy approach might not be optimal for items with minAmount,
-            // but for now we will just use as many packs as needed without going over.
-             if (quantityNeeded < item.minAmount) {
-                 continue; // Skip if we can't even use one minimum pack.
-             }
-             // Use multiples of minAmount
-             quantityToAdd = Math.floor(quantityNeeded / item.minAmount) * item.minAmount;
+          // Ensure we use multiples of the minimum amount
+          quantityToAdd = Math.floor(quantityToUse / item.minAmount) * item.minAmount;
         }
-
-        if(quantityToAdd > 0) {
-            result.push({
-                item: item.name,
-                quantity: quantityToAdd,
-                points: quantityToAdd * item.points,
-            });
-            remainingGap -= quantityToAdd * item.points;
+  
+        if (quantityToAdd > 0) {
+          result.push({
+            item: item.name,
+            quantity: quantityToAdd,
+            points: quantityToAdd * item.points,
+          });
+          remainingGap -= quantityToAdd * item.points;
         }
       }
     }
-    
-    // Final pass for any small remaining gap
+  
+    // Final pass for any small remaining gap with smaller items
     if (remainingGap > 0) {
-        const reversedItems = [...availableItems].reverse();
-        for (const item of reversedItems) {
-            if (remainingGap <= 0) break;
-            if (item.points <= remainingGap && (!item.minAmount || item.minAmount === 1)) {
-                 const quantityNeeded = Math.floor(remainingGap / item.points);
-                 if(quantityNeeded > 0){
-                    const existingItem = result.find(r => r.item === item.name);
-                    if(existingItem) {
-                        existingItem.quantity += quantityNeeded;
-                        existingItem.points += quantityNeeded * item.points;
-                    } else {
-                        result.push({
-                            item: item.name,
-                            quantity: quantityNeeded,
-                            points: quantityNeeded * item.points
-                        });
-                    }
-                    remainingGap -= quantityNeeded * item.points;
-                 }
+      const reversedItems = [...availableItems].sort((a, b) => a.efficiency - b.efficiency);
+      for (const item of reversedItems) {
+        if (remainingGap <= 0) break;
+  
+        const existingResult = result.find(r => r.item === item.name);
+        const usedQuantity = existingResult ? existingResult.quantity : 0;
+        const remainingQuantity = item.quantity - usedQuantity;
+  
+        if (item.points <= remainingGap && remainingQuantity > 0) {
+          let quantityNeeded = Math.floor(remainingGap / item.points);
+  
+          if (quantityNeeded > remainingQuantity) {
+            quantityNeeded = remainingQuantity;
+          }
+  
+          if (item.minAmount && item.minAmount > 1) {
+            quantityNeeded = Math.floor(quantityNeeded / item.minAmount) * item.minAmount;
+          }
+  
+          if (quantityNeeded > 0) {
+            if (existingResult) {
+              existingResult.quantity += quantityNeeded;
+              existingResult.points += quantityNeeded * item.points;
+            } else {
+              result.push({
+                item: item.name,
+                quantity: quantityNeeded,
+                points: quantityNeeded * item.points,
+              });
             }
+            remainingGap -= quantityNeeded * item.points;
+          }
         }
+      }
     }
-
+  
     setSnipingResult(result);
-  };
+  }, [snipingEnabled, targetGap, currentEventData, itemCounts, currentEvent, editingCustomEventName]);
   
   if (!isMounted) {
     return <div className="flex justify-center items-center h-screen">Loading Stratagems...</div>;
