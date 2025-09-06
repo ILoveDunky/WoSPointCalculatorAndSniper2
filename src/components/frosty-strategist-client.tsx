@@ -120,8 +120,9 @@ export default function FrostyStrategistClient() {
   }, [snipingEnabled, targetGap, currentEventData, itemCounts]);
 
   useEffect(() => {
+    const root = document.documentElement;
     Object.entries(accessibilitySettings).forEach(([key, value]) => {
-      document.documentElement.classList.toggle(key, value);
+      root.classList.toggle(key.replace(/([A-Z])/g, '-$1').toLowerCase(), value);
     });
   }, [accessibilitySettings]);
 
