@@ -21,8 +21,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Icons } from '@/components/icons';
 
-import ProgressTracker from './progress-tracker';
-
 type SnipingResult = {
   item: string;
   quantity: number;
@@ -43,7 +41,6 @@ export default function FrostyStrategistClient() {
   
   const [snipingEnabled, setSnipingEnabled] = useState(false);
   const [troopsEnabled, setTroopsEnabled] = useState(false);
-  const [historyEnabled, setHistoryEnabled] = useState(false);
   
   const [totalPoints, setTotalPoints] = useState(0);
 
@@ -65,21 +62,11 @@ export default function FrostyStrategistClient() {
   const [editingCustomEventName, setEditingCustomEventName] = useState('');
 
 
-  // History State
-  const [pointsHistory, setPointsHistory] = useState<PointsHistoryEntry[]>([]);
-
   // Accessibility State
   const [accessibilitySettings, setAccessibilitySettings] = useState<AccessibilitySettings>({
     largeText: false, extraLargeText: false, highContrast: false, reducedMotion: false
   });
   
-  // Stats & Achievements
-  const [userStats, setUserStats] = useState<UserStats>({
-    totalEvents: 0, totalPoints: 0, sessionsThisMonth: 0, firstUse: null,
-    lastUse: null, bestEfficiency: 0, eventsMastered: []
-  });
-  const [achievements, setAchievements] = useState<Achievements>(achievementsData);
-
   const [isMounted, setIsMounted] = useState(false);
 
   // Data
@@ -113,7 +100,7 @@ export default function FrostyStrategistClient() {
     }
   }, [
     currentSection, currentEvent, itemCounts, toggleStates, customEvents, snipingEnabled, troopsEnabled, 
-    historyEnabled, pointsHistory, accessibilitySettings, userStats, achievements
+    accessibilitySettings
   ]);
 
   useEffect(() => {
@@ -142,11 +129,7 @@ export default function FrostyStrategistClient() {
         setCustomEvents(data.customEvents || {});
         setSnipingEnabled(data.snipingEnabled || false);
         setTroopsEnabled(data.troopsEnabled || false);
-        setHistoryEnabled(data.historyEnabled || false);
-        setPointsHistory(data.pointsHistory || []);
         setAccessibilitySettings(data.accessibilitySettings || { largeText: false, extraLargeText: false, highContrast: false, reducedMotion: false });
-        setUserStats(data.userStats || { totalEvents: 0, totalPoints: 0, sessionsThisMonth: 0, firstUse: null, lastUse: null, bestEfficiency: 0, eventsMastered: [] });
-        setAchievements(data.achievements || achievementsData);
         // Load the first custom event if available
         const firstCustomEvent = Object.keys(data.customEvents || {})[0];
         if (firstCustomEvent) {
@@ -162,7 +145,7 @@ export default function FrostyStrategistClient() {
     try {
       const data = {
         currentSection, currentEvent, itemCounts, toggleStates, customEvents, snipingEnabled, troopsEnabled,
-        historyEnabled, pointsHistory, accessibilitySettings, userStats, achievements
+        accessibilitySettings
       };
       localStorage.setItem('frostyStrategist', JSON.stringify(data));
     } catch (e) {
@@ -392,7 +375,6 @@ export default function FrostyStrategistClient() {
   const mainToggles = [
     { id: 'sniping', label: 'Smart Sniping', icon: Icons.crosshair, enabled: snipingEnabled, setEnabled: setSnipingEnabled },
     { id: 'troops', label: 'Troop Training', icon: Icons.helmet, enabled: troopsEnabled, setEnabled: setTroopsEnabled, hidden: !Object.values(currentEventData.troops).some(t => Object.keys(t).length > 0) },
-    { id: 'history', label: 'Points History', icon: Icons.barChart, enabled: historyEnabled, setEnabled: setHistoryEnabled },
   ];
   
   const renderCustomEventUI = () => (
@@ -498,206 +480,193 @@ export default function FrostyStrategistClient() {
           </div>
         </header>
 
-        <Tabs value={currentSection} onValueChange={(val) => setCurrentSection(val as Section)} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="calculator"><Icons.barChart className="mr-2" />Event Calculator</TabsTrigger>
-                <TabsTrigger value="achievements"><Icons.trophy className="mr-2" />Progress Tracker</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="calculator" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <Tabs value={currentEvent} onValueChange={(val) => { setCurrentEvent(val as EventKey); setSnipingResult(null); }} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
-                        {Object.keys(eventData).map(key => {
-                            const title = eventData[key as EventKey].title;
-                            return <TabsTrigger key={key} value={key}>{title}</TabsTrigger>
-                        })}
-                    </TabsList>
-                  </Tabs>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {currentEvent === 'custom' ? renderCustomEventUI() : null}
-                  
-                  <h2 className="text-2xl font-bold text-primary flex items-center gap-2">{currentEventData.title}</h2>
-                  
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {mainToggles.filter(t => !t.hidden).map(toggle => (
-                        <Label key={toggle.id} className="flex items-center gap-3 p-3 bg-secondary rounded-lg border cursor-pointer hover:border-primary transition-colors">
-                            <toggle.icon className="w-5 h-5 text-accent" />
-                            <span className="flex-grow">{toggle.label}</span>
-                            <Switch checked={toggle.enabled} onCheckedChange={toggle.setEnabled} />
-                        </Label>
-                    ))}
-                  </div>
-
-                  <Accordion type="single" collapsible>
-                    <AccordionItem value="advanced-options">
-                        <AccordionTrigger className="text-lg font-semibold"><Icons.settings className="mr-2" />Advanced Options & Settings</AccordionTrigger>
-                        <AccordionContent className="p-4 bg-secondary rounded-b-lg">
-                            <div className="grid md:grid-cols-2 gap-6">
-                                <div>
-                                    <h4 className="font-semibold mb-3 text-primary">Event-Specific Options</h4>
-                                    <div className="space-y-3">
-                                      {currentEventData.toggles.length > 0 ? currentEventData.toggles.map(toggle => (
-                                          <Label key={toggle.id} className="flex items-center gap-3">
-                                              <Switch checked={!!toggleStates[`${currentEvent}-${toggle.id}`]} onCheckedChange={() => handleToggleChange(toggle.id)} />
-                                              <Tooltip>
-                                                  <TooltipTrigger asChild><span className="flex items-center gap-1">{toggle.label} <Icons.info className="w-3 h-3" /></span></TooltipTrigger>
-                                                  <TooltipContent><p>{toggle.tooltip}</p></TooltipContent>
-                                              </Tooltip>
-                                          </Label>
-                                      )) : <p className="text-sm text-muted-foreground">No specific options for this event.</p>}
-                                    </div>
-                                </div>
-                                <div>
-                                    <h4 className="font-semibold mb-3 text-primary">Accessibility</h4>
-                                    <div className="space-y-3">
-                                        {Object.entries({largeText: 'Large Text', extraLargeText: 'Extra Large Text', highContrast: 'High Contrast', reducedMotion: 'Reduce Motion'}).map(([key, label]) => (
-                                            <Label key={key} className="flex items-center gap-3">
-                                                <Switch checked={accessibilitySettings[key as keyof AccessibilitySettings]} onCheckedChange={() => handleAccessibilityChange(key as keyof AccessibilitySettings)} />
-                                                <span>{label}</span>
-                                            </Label>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-
-                  <div className="grid lg:grid-cols-2 gap-6 items-start">
-                    <div className="space-y-6">
-                      <div className="grid md:grid-cols-2 gap-4">
-                        {Object.entries(currentEventData.items).map(([name, data]) => (
-                          <Card key={name} className={`transition-opacity ${data.available ? 'opacity-100' : 'opacity-50'}`}>
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-base font-semibold flex justify-between items-center">
-                                    <span>{name}</span>
-                                    <span className="text-sm font-bold text-accent">{data.points.toLocaleString()} pts</span>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <Input 
-                                  type="number" 
-                                  placeholder={data.minAmount ? `Min: ${data.minAmount}` : 'Quantity'}
-                                  min={0}
-                                  step={data.minAmount || 1}
-                                  value={itemCounts[`${currentEvent}-${editingCustomEventName}-${name}`] || ''}
-                                  onChange={(e) => handleItemCountChange(name, e.target.value)}
-                                  disabled={!data.available}
-                                />
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                       {currentEvent !== 'custom' && Object.keys(currentEventData.items).length === 0 && (
-                          <p className="text-sm text-muted-foreground text-center col-span-2">No items to calculate for this event. Check advanced options or enable features.</p>
-                       )}
-                    </div>
-                    <div className="space-y-6">
-                      {troopsEnabled && Object.values(currentEventData.troops).some(t => Object.keys(t).length > 0) && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2"><Icons.helmet /> Troop Training Calculator</CardTitle>
-                                <CardDescription>Calculate points from training troops for different events.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <Label htmlFor="troop-event-type">Event Type</Label>
-                                        <Select value={troopEventType} onValueChange={(v) => setTroopEventType(v as TroopEvent)}>
-                                            <SelectTrigger id="troop-event-type"><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="koi_svs">King of Icefield / SvS</SelectItem>
-                                                <SelectItem value="officer">Officer Events</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="troop-level">Troop Level</Label>
-                                        <Select value={troopLevel?.toString()} onValueChange={(v) => setTroopLevel(parseInt(v))}>
-                                            <SelectTrigger id="troop-level"><SelectValue placeholder="Select" /></SelectTrigger>
-                                            <SelectContent>
-                                                {Object.keys(currentEventData.troops[troopEventType] || {}).map(level => <SelectItem key={level} value={level}>Level {level}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="troop-time">Base Time/Troop (seconds)</Label>
-                                        <Input id="troop-time" type="number" placeholder="e.g., 5400" value={troopTime || ''} onChange={e => setTroopTime(parseInt(e.target.value))} />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="troop-speedups">Total Speedups (seconds)</Label>
-                                        <Input id="troop-speedups" type="number" placeholder="e.g., 36000" value={troopSpeedups || ''} onChange={e => setTroopSpeedups(parseInt(e.target.value))} />
-                                    </div>
-                                </div>
-                                {troopLevel && troopTime && troopSpeedups ? (
-                                    <div className="text-sm p-3 bg-secondary rounded-lg space-y-1">
-                                        <p>Time per troop: <span className="font-bold text-accent">{troopTime.toLocaleString()}s</span></p>
-                                        <p>Max Trainable: <span className="font-bold text-accent">{Math.floor(troopSpeedups / (troopTime || 1)).toLocaleString()} troops</span></p>
-                                        <p>Points from Troops: <span className="font-bold text-accent">{ (Math.floor(troopSpeedups / (troopTime || 1)) * (currentEventData.troops[troopEventType]?.[troopLevel] || 0)).toLocaleString() }</span></p>
-                                    </div>
-                                ) : <p className="text-xs text-muted-foreground text-center pt-2">Fill all fields to calculate troop points.</p>}
-                            </CardContent>
-                            <CardFooter>
-                                 <p className="text-xs text-muted-foreground">Find base training time in your barracks for a single troop.</p>
-                            </CardFooter>
-                        </Card>
-                      )}
-                      {snipingEnabled && (
-                          <Card className="border-accent">
-                            <CardHeader>
-                              <CardTitle className="flex items-center gap-2 text-accent"><Icons.crosshair /> Smart Sniping</CardTitle>
-                              <CardDescription>Find the best items to snipe a target score with point efficiency.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid grid-cols-1 gap-4">
-                                    <div>
-                                        <Label htmlFor="target-gap">Target Point Gap</Label>
-                                        <Input id="target-gap" type="number" placeholder="Points needed" value={targetGap || ''} onChange={e => setTargetGap(parseInt(e.target.value))} />
-                                    </div>
-                                </div>
-                                <div className="p-4 bg-secondary rounded-lg min-h-[120px]">
-                                    <h4 className="font-semibold mb-2">Suggestions:</h4>
-                                    {snipingResult && snipingResult.length > 0 ? (
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Item</TableHead>
-                                                    <TableHead className="text-right">Quantity</TableHead>
-                                                    <TableHead className="text-right">Points</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {snipingResult.map((item, i) => (
-                                                    <TableRow key={i}>
-                                                        <TableCell className="font-medium">{item.item}</TableCell>
-                                                        <TableCell className="text-right">{item.quantity.toLocaleString()}</TableCell>
-                                                        <TableCell className="text-right">{item.points.toLocaleString()}</TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    ) : <p className="text-xs text-muted-foreground text-center pt-4">Enter a point gap to get suggestions.</p>}
-                                </div>
-                            </CardContent>
-                             <CardFooter className="flex-col items-start gap-2 text-xs text-muted-foreground">
-                                <p>Smart sniping helps you reach a score with the most point-efficient item combination.</p>
-                                <p>Enjoying this Pro feature? Consider sending <span className="font-bold text-yellow-300">Froststars</span> in-game! ID: <span className="font-bold text-white">176435188</span></p>
-                            </CardFooter>
-                          </Card>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+        <Card>
+          <CardHeader>
+            <Tabs value={currentEvent} onValueChange={(val) => { setCurrentEvent(val as EventKey); setSnipingResult(null); }} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
+                  {Object.keys(eventData).map(key => {
+                      const title = eventData[key as EventKey].title;
+                      return <TabsTrigger key={key} value={key}>{title}</TabsTrigger>
+                  })}
+              </TabsList>
+            </Tabs>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {currentEvent === 'custom' ? renderCustomEventUI() : null}
             
-            <TabsContent value="achievements" className="mt-6">
-                <ProgressTracker achievements={achievements} userStats={userStats} />
-            </TabsContent>
-        </Tabs>
+            <h2 className="text-2xl font-bold text-primary flex items-center gap-2">{currentEventData.title}</h2>
+            
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {mainToggles.filter(t => !t.hidden).map(toggle => (
+                  <Label key={toggle.id} className="flex items-center gap-3 p-3 bg-secondary rounded-lg border cursor-pointer hover:border-primary transition-colors">
+                      <toggle.icon className="w-5 h-5 text-accent" />
+                      <span className="flex-grow">{toggle.label}</span>
+                      <Switch checked={toggle.enabled} onCheckedChange={toggle.setEnabled} />
+                  </Label>
+              ))}
+            </div>
+
+            <Accordion type="single" collapsible>
+              <AccordionItem value="advanced-options">
+                  <AccordionTrigger className="text-lg font-semibold"><Icons.settings className="mr-2" />Advanced Options & Settings</AccordionTrigger>
+                  <AccordionContent className="p-4 bg-secondary rounded-b-lg">
+                      <div className="grid md:grid-cols-2 gap-6">
+                          <div>
+                              <h4 className="font-semibold mb-3 text-primary">Event-Specific Options</h4>
+                              <div className="space-y-3">
+                                {currentEventData.toggles.length > 0 ? currentEventData.toggles.map(toggle => (
+                                    <Label key={toggle.id} className="flex items-center gap-3">
+                                        <Switch checked={!!toggleStates[`${currentEvent}-${toggle.id}`]} onCheckedChange={() => handleToggleChange(toggle.id)} />
+                                        <Tooltip>
+                                            <TooltipTrigger asChild><span className="flex items-center gap-1">{toggle.label} <Icons.info className="w-3 h-3" /></span></TooltipTrigger>
+                                            <TooltipContent><p>{toggle.tooltip}</p></TooltipContent>
+                                        </Tooltip>
+                                    </Label>
+                                )) : <p className="text-sm text-muted-foreground">No specific options for this event.</p>}
+                              </div>
+                          </div>
+                          <div>
+                              <h4 className="font-semibold mb-3 text-primary">Accessibility</h4>
+                              <div className="space-y-3">
+                                  {Object.entries({largeText: 'Large Text', extraLargeText: 'Extra Large Text', highContrast: 'High Contrast', reducedMotion: 'Reduce Motion'}).map(([key, label]) => (
+                                      <Label key={key} className="flex items-center gap-3">
+                                          <Switch checked={accessibilitySettings[key as keyof AccessibilitySettings]} onCheckedChange={() => handleAccessibilityChange(key as keyof AccessibilitySettings)} />
+                                          <span>{label}</span>
+                                      </Label>
+                                  ))}
+                              </div>
+                          </div>
+                      </div>
+                  </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+
+            <div className="grid lg:grid-cols-2 gap-6 items-start">
+              <div className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-4">
+                  {Object.entries(currentEventData.items).map(([name, data]) => (
+                    <Card key={name} className={`transition-opacity ${data.available ? 'opacity-100' : 'opacity-50'}`}>
+                      <CardHeader className="pb-2">
+                          <CardTitle className="text-base font-semibold flex justify-between items-center">
+                              <span>{name}</span>
+                              <span className="text-sm font-bold text-accent">{data.points.toLocaleString()} pts</span>
+                          </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                          <Input 
+                            type="number" 
+                            placeholder={data.minAmount ? `Min: ${data.minAmount}` : 'Quantity'}
+                            min={0}
+                            step={data.minAmount || 1}
+                            value={itemCounts[`${currentEvent}-${editingCustomEventName}-${name}`] || ''}
+                            onChange={(e) => handleItemCountChange(name, e.target.value)}
+                            disabled={!data.available}
+                          />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                 {currentEvent !== 'custom' && Object.keys(currentEventData.items).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center col-span-2">No items to calculate for this event. Check advanced options or enable features.</p>
+                 )}
+              </div>
+              <div className="space-y-6">
+                {troopsEnabled && Object.values(currentEventData.troops).some(t => Object.keys(t).length > 0) && (
+                  <Card>
+                      <CardHeader>
+                          <CardTitle className="flex items-center gap-2"><Icons.helmet /> Troop Training Calculator</CardTitle>
+                          <CardDescription>Calculate points from training troops for different events.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                          <div className="grid sm:grid-cols-2 gap-4">
+                              <div>
+                                  <Label htmlFor="troop-event-type">Event Type</Label>
+                                  <Select value={troopEventType} onValueChange={(v) => setTroopEventType(v as TroopEvent)}>
+                                      <SelectTrigger id="troop-event-type"><SelectValue /></SelectTrigger>
+                                      <SelectContent>
+                                          <SelectItem value="koi_svs">King of Icefield / SvS</SelectItem>
+                                          <SelectItem value="officer">Officer Events</SelectItem>
+                                      </SelectContent>
+                                  </Select>
+                              </div>
+                              <div>
+                                  <Label htmlFor="troop-level">Troop Level</Label>
+                                  <Select value={troopLevel?.toString()} onValueChange={(v) => setTroopLevel(parseInt(v))}>
+                                      <SelectTrigger id="troop-level"><SelectValue placeholder="Select" /></SelectTrigger>
+                                      <SelectContent>
+                                          {Object.keys(currentEventData.troops[troopEventType] || {}).map(level => <SelectItem key={level} value={level}>Level {level}</SelectItem>)}
+                                      </SelectContent>
+                                  </Select>
+                              </div>
+                              <div>
+                                  <Label htmlFor="troop-time">Base Time/Troop (seconds)</Label>
+                                  <Input id="troop-time" type="number" placeholder="e.g., 5400" value={troopTime || ''} onChange={e => setTroopTime(parseInt(e.target.value))} />
+                              </div>
+                              <div>
+                                  <Label htmlFor="troop-speedups">Total Speedups (seconds)</Label>
+                                  <Input id="troop-speedups" type="number" placeholder="e.g., 36000" value={troopSpeedups || ''} onChange={e => setTroopSpeedups(parseInt(e.target.value))} />
+                              </div>
+                          </div>
+                          {troopLevel && troopTime && troopSpeedups ? (
+                              <div className="text-sm p-3 bg-secondary rounded-lg space-y-1">
+                                  <p>Time per troop: <span className="font-bold text-accent">{troopTime.toLocaleString()}s</span></p>
+                                  <p>Max Trainable: <span className="font-bold text-accent">{Math.floor(troopSpeedups / (troopTime || 1)).toLocaleString()} troops</span></p>
+                                  <p>Points from Troops: <span className="font-bold text-accent">{ (Math.floor(troopSpeedups / (troopTime || 1)) * (currentEventData.troops[troopEventType]?.[troopLevel] || 0)).toLocaleString() }</span></p>
+                              </div>
+                          ) : <p className="text-xs text-muted-foreground text-center pt-2">Fill all fields to calculate troop points.</p>}
+                      </CardContent>
+                      <CardFooter>
+                           <p className="text-xs text-muted-foreground">Find base training time in your barracks for a single troop.</p>
+                      </CardFooter>
+                  </Card>
+                )}
+                {snipingEnabled && (
+                    <Card className="border-accent">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-accent"><Icons.crosshair /> Smart Sniping</CardTitle>
+                        <CardDescription>Find the best items to snipe a target score with point efficiency.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                          <div className="grid grid-cols-1 gap-4">
+                              <div>
+                                  <Label htmlFor="target-gap">Target Point Gap</Label>
+                                  <Input id="target-gap" type="number" placeholder="Points needed" value={targetGap || ''} onChange={e => setTargetGap(parseInt(e.target.value))} />
+                              </div>
+                          </div>
+                          <div className="p-4 bg-secondary rounded-lg min-h-[120px]">
+                              <h4 className="font-semibold mb-2">Suggestions:</h4>
+                              {snipingResult && snipingResult.length > 0 ? (
+                                  <Table>
+                                      <TableHeader>
+                                          <TableRow>
+                                              <TableHead>Item</TableHead>
+                                              <TableHead className="text-right">Quantity</TableHead>
+                                              <TableHead className="text-right">Points</TableHead>
+                                          </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                          {snipingResult.map((item, i) => (
+                                              <TableRow key={i}>
+                                                  <TableCell className="font-medium">{item.item}</TableCell>
+                                                  <TableCell className="text-right">{item.quantity.toLocaleString()}</TableCell>
+                                                  <TableCell className="text-right">{item.points.toLocaleString()}</TableCell>
+                                              </TableRow>
+                                          ))}
+                                      </TableBody>
+                                  </Table>
+                              ) : <p className="text-xs text-muted-foreground text-center pt-4">Enter a point gap to get suggestions.</p>}
+                          </div>
+                      </CardContent>
+                       <CardFooter className="flex-col items-start gap-2 text-xs text-muted-foreground">
+                          <p>Smart sniping helps you reach a score with the most point-efficient item combination.</p>
+                          <p>Enjoying this Pro feature? Consider sending <span className="font-bold text-yellow-300">Froststars</span> in-game! ID: <span className="font-bold text-white">176435188</span></p>
+                      </CardFooter>
+                    </Card>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="sticky bottom-0 mt-6 md:mt-8 p-4 bg-gradient-to-t from-background via-background to-transparent">
           <div className="bg-primary/80 backdrop-blur-sm border border-border rounded-lg shadow-2xl p-4 text-center">

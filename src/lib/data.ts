@@ -9,7 +9,9 @@ export const eventData: Events = {
             '1 Minute of Speedups': { points: 30, available: true, toggle: 'speedups' },
             'Mythic General Shards': { points: 3040, available: true, toggle: 'mythic-shards', minAmount: 5 },
             'Hero Gear Essence Stone': { points: 4000, available: true, toggle: 'essence-stones', minAmount: 1 },
-            'Mithril': { points: 40000, available: true, toggle: 'mithril', minAmount: 1 }
+            'Mithril': { points: 40000, available: true, toggle: 'mithril', minAmount: 1 },
+            'Sigils': { points: 6000, available: true },
+            'Wisdom Books': { points: 60, available: true }
         },
         troops: {
             koi_svs: { 1: 3, 2: 4, 3: 5, 4: 8, 5: 12, 6: 18, 7: 25, 8: 35, 9: 45, 10: 60, 11: 75 },
@@ -73,7 +75,9 @@ export const eventData: Events = {
             'Fire Crystal Shard (research)': { points: 50, available: false, toggle: 'state-age' },
             'Mithril': { points: 28800, available: true, toggle: 'mithril', minAmount: 1 },
             'Hero Gear Essence Stone': { points: 800, available: true, toggle: 'essence-stones', minAmount: 1 },
-            '1 Minute of Speedups': { points: 1, available: true, toggle: 'speedups' }
+            '1 Minute of Speedups': { points: 1, available: true, toggle: 'speedups' },
+            'Sigils': { points: 200, available: true },
+            'Wisdom Books': { points: 2, available: true }
         },
         troops: {
             koi_svs: {},
@@ -96,7 +100,9 @@ export const eventData: Events = {
             'Advanced Wild Marks': { points: 15000, available: true, toggle: 'adv-marks' },
             'Common Wild Marks': { points: 1150, available: true, toggle: 'common-marks' },
             'Hero Gear Essence Stone': { points: 4000, available: true, toggle: 'essence-stones', minAmount: 1 },
-            'Mithril': { points: 40000, available: true, toggle: 'mithril', minAmount: 1 }
+            'Mithril': { points: 40000, available: true, toggle: 'mithril', minAmount: 1 },
+            'Sigils': { points: 6000, available: true },
+            'Wisdom Books': { points: 60, available: true }
         },
         troops: {
              koi_svs: { 1: 1, 2: 2, 3: 3, 4: 4, 5: 6, 6: 9, 7: 12, 8: 17, 9: 22, 10: 30, 11: 37 },
