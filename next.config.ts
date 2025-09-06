@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   /* config options here */
   output: 'export',
   distDir: 'docs',
+  basePath: '/WoSPointCalculatorAndSniper2',
   typescript: {
     ignoreBuildErrors: true,
   },
