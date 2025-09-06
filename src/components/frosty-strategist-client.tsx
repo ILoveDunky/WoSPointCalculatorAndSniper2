@@ -53,6 +53,9 @@ export default function FrostyStrategistClient() {
   const [troopTime, setTroopTime] = useState<number | undefined>();
   const [troopSpeedups, setTroopSpeedups] = useState<number | undefined>();
   const [troopEventType, setTroopEventType] = useState<TroopEvent>('koi_svs');
+  const [speedupDays, setSpeedupDays] = useState<number | undefined>();
+  const [speedupHours, setSpeedupHours] = useState<number | undefined>();
+  const [speedupMinutes, setSpeedupMinutes] = useState<number | undefined>();
 
 
   // Custom Event State
@@ -115,6 +118,22 @@ export default function FrostyStrategistClient() {
       setSnipingResult(null);
     }
   }, [snipingEnabled, targetGap, currentEventData, itemCounts]);
+
+  useEffect(() => {
+    Object.entries(accessibilitySettings).forEach(([key, value]) => {
+      document.documentElement.classList.toggle(key, value);
+    });
+  }, [accessibilitySettings]);
+
+  useEffect(() => {
+    const days = speedupDays || 0;
+    const hours = speedupHours || 0;
+    const minutes = speedupMinutes || 0;
+    const totalSeconds = (days * 24 * 60 * 60) + (hours * 60 * 60) + (minutes * 60);
+    if (totalSeconds > 0) {
+      setTroopSpeedups(totalSeconds);
+    }
+  }, [speedupDays, speedupHours, speedupMinutes]);
 
 
   // Functions
@@ -466,7 +485,7 @@ export default function FrostyStrategistClient() {
 
   return (
     <TooltipProvider>
-      <div className={`space-y-6 md:space-y-8 ${Object.entries(accessibilitySettings).filter(([,v]) => v).map(([k]) => k).join(' ')}`}>
+      <div className="space-y-6 md:space-y-8">
         <header className="text-center p-6 md:p-8 bg-gradient-to-br from-background to-primary rounded-lg shadow-2xl relative">
           <h1 className="text-3xl md:text-4xl font-bold flex items-center justify-center gap-3">
             <Icons.swords className="w-8 h-8" />
@@ -598,14 +617,22 @@ export default function FrostyStrategistClient() {
                                       </SelectContent>
                                   </Select>
                               </div>
-                              <div>
-                                  <Label htmlFor="troop-time">Base Time/Troop (seconds)</Label>
-                                  <Input id="troop-time" type="number" placeholder="e.g., 5400" value={troopTime || ''} onChange={e => setTroopTime(parseInt(e.target.value))} />
-                              </div>
-                              <div>
-                                  <Label htmlFor="troop-speedups">Total Speedups (seconds)</Label>
-                                  <Input id="troop-speedups" type="number" placeholder="e.g., 36000" value={troopSpeedups || ''} onChange={e => setTroopSpeedups(parseInt(e.target.value))} />
-                              </div>
+                          </div>
+                          <div>
+                              <Label htmlFor="troop-time">Base Time/Troop (seconds)</Label>
+                              <Input id="troop-time" type="number" placeholder="e.g., 5400" value={troopTime || ''} onChange={e => setTroopTime(parseInt(e.target.value))} />
+                          </div>
+                          <div>
+                            <Label>Speedup Converter</Label>
+                            <div className="grid grid-cols-3 gap-2">
+                                <Input type="number" placeholder="Days" value={speedupDays || ''} onChange={e => setSpeedupDays(parseInt(e.target.value) || 0)} />
+                                <Input type="number" placeholder="Hours" value={speedupHours || ''} onChange={e => setSpeedupHours(parseInt(e.target.value) || 0)} />
+                                <Input type="number" placeholder="Mins" value={speedupMinutes || ''} onChange={e => setSpeedupMinutes(parseInt(e.target.value) || 0)} />
+                            </div>
+                          </div>
+                           <div>
+                              <Label htmlFor="troop-speedups">Total Speedups (seconds)</Label>
+                              <Input id="troop-speedups" type="number" placeholder="Calculated from converter" value={troopSpeedups || ''} onChange={e => setTroopSpeedups(parseInt(e.target.value))} />
                           </div>
                           {troopLevel && troopTime && troopSpeedups ? (
                               <div className="text-sm p-3 bg-secondary rounded-lg space-y-1">
